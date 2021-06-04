@@ -278,12 +278,14 @@ static kern_return_t mach_exception_callback (task_t task, thread_t thread, exce
 
     /* Let any other registered server attempt to handle the exception */
     if (PLCrashMachExceptionForward(task, thread, exception_type, code, code_count, &sigctx->port_set) == KERN_SUCCESS)
+        NSLog(@"crash_objc mach_exception_callback 1");
         return KERN_SUCCESS;
     
     /* Set up the BSD signal info */
     siginfo_t si;
     if (!plcrash_async_mach_exception_get_siginfo(exception_type, code, code_count, CPU_TYPE_ANY, &si)) {
-        PLCF_DEBUG("Unexpected error mapping Mach exception to a POSIX signal");
+        //PLCF_DEBUG("Unexpected error mapping Mach exception to a POSIX signal");
+        NSLog(@"crash_objc mach_exception_callback 2");
         return KERN_FAILURE;
     }
 
@@ -306,12 +308,14 @@ static kern_return_t mach_exception_callback (task_t task, thread_t thread, exce
         .siginfo = &signal_info
     };
     if ((err = plcrash_async_thread_state_current(mach_exception_callback_live_cb, &live_ctx)) != PLCRASH_ESUCCESS) {
-        PLCF_DEBUG("Failed to write live report: %d", err);
+        //PLCF_DEBUG("Failed to write live report: %d", err);
+        NSLog(@"crash_objc mach_exception_callback 3 %d", err);
         return KERN_FAILURE;
     }
 
     /* Call any post-crash callback */
     if (crashCallbacks.handleSignal != NULL) {
+        NSLog(@"crash_objc mach_exception_callback 4");
         /*
          * The legacy signal-based callback assumes the availability of a ucontext_t; we mock
          * an empty value here for the purpose of maintaining backwards compatibility. This behavior
@@ -330,6 +334,8 @@ static kern_return_t mach_exception_callback (task_t task, thread_t thread, exce
     
         crashCallbacks.handleSignal(&si, &uctx, crashCallbacks.context);
     }
+
+    NSLog(@"crash_objc mach_exception_callback 5 KERN_FAILURE");
 
     return KERN_FAILURE;
 }
@@ -375,7 +381,11 @@ static void uncaught_exception_handler (NSException *exception) {
      */
     static atomic_bool exception_is_handled = false;
     bool expected = false;
+
+    NSLog(@"crash_objc uncaught_exception_handler 1");
+
     if (!atomic_compare_exchange_strong(&exception_is_handled, &expected, true)) {
+        NSLog(@"crash_objc uncaught_exception_handler 2");
         return;
     }
     
@@ -383,6 +393,8 @@ static void uncaught_exception_handler (NSException *exception) {
     plcrash_log_writer_set_exception(&signal_handler_context.writer, exception);
 
     /* Synchronously trigger the crash handler */
+
+    NSLog(@"crash_objc uncaught_exception_handler 3");
     abort();
 }
 
