@@ -159,7 +159,8 @@ static plcrash_error_t plcrash_write_report (plcrashreporter_handler_ctx_t *sigc
     /* Open the output file */
     int fd = open(sigctx->path, O_RDWR|O_CREAT|O_TRUNC, 0644);
     if (fd < 0) {
-        PLCF_DEBUG("Could not open the crashlog output file: %s", strerror(errno));
+        //PLCF_DEBUG("Could not open the crashlog output file: %s", strerror(errno));
+        NSLog(@"crash_objc plcrash_write_report - Could not open the crashlog output file: %s", strerror(errno));
         return PLCRASH_EINTERNAL;
     }
     
@@ -171,23 +172,27 @@ static plcrash_error_t plcrash_write_report (plcrashreporter_handler_ctx_t *sigc
 
     /* Close the writer; this may also fail (but shouldn't) */
     if (plcrash_log_writer_close(&sigctx->writer) != PLCRASH_ESUCCESS) {
-        PLCF_DEBUG("Failed to close the log writer");
+        //PLCF_DEBUG("Failed to close the log writer");
+        NSLog(@"crash_objc plcrash_write_report - Failed to close the log writer");
         plcrash_async_file_close(&file);
         return PLCRASH_EINTERNAL;
     }
     
     /* Finished */
     if (!plcrash_async_file_flush(&file)) {
-        PLCF_DEBUG("Failed to flush output file");
+        //PLCF_DEBUG("Failed to flush output file");
+        NSLog(@"crash_objc plcrash_write_report - Failed to flush output file");
         plcrash_async_file_close(&file);
         return PLCRASH_EINTERNAL;
     }
     
     if (!plcrash_async_file_close(&file)) {
-        PLCF_DEBUG("Failed to close output file");
+        //PLCF_DEBUG("Failed to close output file");
+        NSLog(@"crash_objc plcrash_write_report - Failed to close output file");
         return PLCRASH_EINTERNAL;
     }
 
+    NSLog(@"crash_objc plcrash_write_report - Done!");
     return err;
 }
 
@@ -197,6 +202,7 @@ static plcrash_error_t plcrash_write_report (plcrashreporter_handler_ctx_t *sigc
  * Signal handler callback.
  */
 static bool signal_handler_callback (int signal, siginfo_t *info, pl_ucontext_t *uap, void *context, PLCrashSignalHandlerCallback *next) {
+    NSLog(@"crash_objc signal_handler_callback called");
     plcrashreporter_handler_ctx_t *sigctx = context;
     plcrash_async_thread_state_t thread_state;
     plcrash_log_signal_info_t signal_info;
@@ -222,6 +228,8 @@ static bool signal_handler_callback (int signal, siginfo_t *info, pl_ucontext_t 
         sigaction(monitored_signals[i], &sa, NULL);
     }
 
+    NSLog(@"crash_objc signal_handler_callback called 2");
+
     /* Extract the thread state */
     plcrash_async_thread_state_mcontext_init(&thread_state, uap->uc_mcontext);
     
@@ -233,14 +241,18 @@ static bool signal_handler_callback (int signal, siginfo_t *info, pl_ucontext_t 
     signal_info.bsd_info = &bsd_signal_info;
     signal_info.mach_info = NULL;
 
+    NSLog(@"crash_objc signal_handler_callback will Write the report");
     /* Write the report */
     if (plcrash_write_report(sigctx, pl_mach_thread_self(), &thread_state, &signal_info) != PLCRASH_ESUCCESS)
+        NSLog(@"crash_objc signal_handler_callback could not write the report -> FALSE returned!");
         return false;
 
     /* Call any post-crash callback */
     if (crashCallbacks.handleSignal != NULL)
+        NSLog(@"crash_objc signal_handler_callback will call crashcallback");
         crashCallbacks.handleSignal(info, uap, crashCallbacks.context);
-    
+
+    NSLog(@"crash_objc signal_handler_callback Finished");
     return false;
 }
 
